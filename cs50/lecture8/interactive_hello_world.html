@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Matrix has you</title>
+        <script>
+            function greet()
+            {
+                let name = document.querySelector('#name').value;
+                alert("Wake up, " + name + "!");
+            }
+        </script>
+    </head>
+    <body>
+        <form onsubmit="greet(); return false;">
+            <input id="name" 
+                   type="text"
+                   placeholder="What's your name?"
+                   autocomplete="off"
+                   autofocus="on">
+            <input type="submit">
+        </form>
+    </body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Matrix has you</title>
+        <script>
+
+            function greet()
+            {
+                let name = document.querySelector('#name').value;
+                alert("Wake up, " + name + "!");
+            }
+
+            function listen()
+            {
+                document.querySelector('form').addEventListener('submit',greet);
+            }
+
+            //Wait until the whole html is loaded to create the greeting listener
+            document.addEventListener('DOMContentLoaded',listen);
+
+            /*
+                Code above could be done using lambda function as follows:
+
+                document.addEventListener('DOMContentLoaded',funtion(){
+                    document.querySelector('form').addEventListener('submit',function(){
+                        let name = document.querySelector('#name').value;
+                        alert("Wake up" + name + "!")
+                    })
+                })
+
+
+            */
+        </script>
+    </head>
+    <body>
+        <form>
+            <input id="name" 
+                   type="text"
+                   placeholder="What's your name?"
+                   autocomplete="off"
+                   autofocus="on">
+            <input type="submit">
+        </form>
+    </body>
+</html>
