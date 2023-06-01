@@ -83,3 +83,33 @@ fn plus_one(x: i32) -> i32 {
 Use double slash `//` everywhere. Style way is use comments almost always above the line and not in the end, even tough in the end are also acepptable.
 
 Documentation comments use three slashes, but we will see them more down the road.
+
+# if expressions
+
+Always provide a expression that evaluates to bool. Rust will never implicit convert int or anything else to bool. 
+
+if are expressions, hence, you can assign a variable to it's return.
+
+```
+let condition = true;
+let unmber = if condition { 5 } else { 6 };
+```
+
+# Repetition
+
+`loop` is a repetition keyword that will run endlessly until you call a `break`
+`loop` is also a expression, hence, you can assign the return value as well. I didn't get why we put a ; after the `break counter * 2;`, because the break is not a statement here but a expression, it's returning a value.
+
+You can provide a loop label to decide which loop will be ended by the break.
+```
+'my_loop: loop {
+    println!("inside loop");
+    break 'my_loop;
+}
+```
+
+`while` is like any other while
+
+`for` loops are similar to python
+
+`for element in list { do_something(); }`
