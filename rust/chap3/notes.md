@@ -50,3 +50,36 @@ Declaration: `let a: [i32; 5] = [1, 2, 3, 4, 5]`
 For an array with the same value, you can use `let a: [3; 5]` that will create `a = [3, 3, 3, 3, 3]
 
 Access array elements with the [];
+
+# Functions
+
+You must always specify the type of the parameter of a function.
+
+Statements are instructions that perform some action and do not return a value;
+Example: `let x = 5;` create the variable but the `let` is not assign to another variable
+Hence, you can't do `x = y = 6;` in rust.
+
+
+Expressions evaluate to a resultant value. They don't need a ending ;
+Example:
+```rust
+let y = {
+    let x = 3;
+    x + 1
+};
+```
+is valid and `y = 4`, but it's ugly as fuck.
+
+The return values of functions are not named, but you need to specify their type like python 
+
+```
+fn plus_one(x: i32) -> i32 {
+    x + 1
+}
+```
+
+# Comments
+
+Use double slash `//` everywhere. Style way is use comments almost always above the line and not in the end, even tough in the end are also acepptable.
+
+Documentation comments use three slashes, but we will see them more down the road.
