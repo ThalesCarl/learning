@@ -67,3 +67,39 @@ fn calculate_length(s: String) -> (String, usize) {
     (s, length)
 }
 ```
+
+## References and borrowing
+
+References is a way to access a variable in the heap without need to move back and forth the object. They can be mutable or immutable. But not both simultaneously. Also you can only have one mutable reference at a time.
+
+```rust
+let mut s = String::from("Wake up, Neo!");
+let r1 = &s; // no problem
+let r2 = &s; // no problem
+let r3 = &mut s; // Problem here, because r1 and r2 are expecting that the reference was still immutable
+println!("{}, {} and {}", r1, r2, r3); 
+```
+The problem only occurs because the `println` macro is using the three references at once. If the code is written as below there is no problem because r1 and r2 are used before the creation of r3 and they are not used anymore.
+
+```rust
+let mut s = String::from("Wake up, Neo!");
+let r1 = &s; // no problem
+let r2 = &s; // no problem
+println!("{} and {}", r1, r2); 
+
+let r3 = &mut s; // no problem
+println!("{}", r3); 
+```
+
+## Dangling references
+
+Beware of the scope of a variable when returing its refence. Rust will produce a error at the code below because of that.
+```rust
+fn dangle() -> &String { // dangle returns a reference to a String
+
+    let s = String::from("hello"); // s is a new String
+
+    &s // we return a reference to the String, s
+} // Here, s goes out of scope, and is dropped. Its memory goes away.
+  // Danger!
+```
