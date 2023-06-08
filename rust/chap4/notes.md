@@ -103,3 +103,27 @@ fn dangle() -> &String { // dangle returns a reference to a String
 } // Here, s goes out of scope, and is dropped. Its memory goes away.
   // Danger!
 ```
+
+## String slices
+
+```rust
+let s = String::from("hello world");
+
+let hello = &s[..5] // equals to &s[0..5]
+let world = &s[6..] // equals to &s[6..11]
+```
+
+For now, slices are valid only for ASCII. For UTF8 slicing look at chapter 8.
+
+I didn't get the phrase "the type that signifies “string slice” is written as &str"
+
+String literals are slices? 
+
+You can also use slices to arrays
+
+```rust
+let a = [1, 2, 3, 4, 5];
+let slice = &a[1..3];
+assert_eq!(slice, &[2, 3])
+```
+
