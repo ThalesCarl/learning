@@ -125,3 +125,33 @@ match number {
 ```
 
 If you use `_` as the placeholder you usually don't pass that value to the function associated? On the other hand, it's  common to return a unit tuple `()` to the catch all placeholder
+
+## if let
+
+```rust
+let config_max = Some(3);
+if let Some(max) = config_max {
+    println!("The maximum is configured to be {}", max);
+}
+```
+The above code is the same as 
+```rust
+let config_max = Some(3u8);
+match config_max {
+    Some(max) => println!("The maximum is configured to be {}", max),
+    _ => (),
+}
+```
+
+This is just a way to economize the exaustive checking of the match keyword.
+
+You can also use a `else` in the `if let` construction when you want a piece of code to run with all the expressions that don't match the expected pattern.
+
+```
+let mut count = 0;
+let config_max = Some(3);
+if let Some(max) = config_max {
+    println!("The maximum is configured to be {}", max);
+} else {
+    count += 1;
+}
