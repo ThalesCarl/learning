@@ -56,4 +56,53 @@ pub fn eat_at_restaurant() {
 
 Like python you can use the keyword `as` to rename a module/struct/enum if you want to do it.
 
+External packages must be declared in the `Cargo.toml` file and after that they are downloaded and become available by using the `use` keyword.
 
+## Nested paths
+
+Instead of using 
+
+```rust
+use std::cmp::Ordering;
+use std::io;
+```
+
+you can use
+```rust
+use std::{cmp::Ordering, io};
+```
+
+Instead of using 
+
+```rust
+use std::io;
+use std::io::Write; // When I bring io, doesnt Write comes with it?
+```
+
+you can use
+```rust
+use std::io{self, Write};
+`
+
+## Glob operator
+
+If we want all public items defined in a module we can use the wildcard `*` to bring everything.
+
+```rust
+use std::collections::*;
+```
+
+## Separating modules into different files
+
+You should use the `mod` keyword to include the child module into the parent. 
+
+The structure of the files should look something like below, where you name a folder with the name of the module and place its child modules inside it.
+
+```bash
+
+src
+├── front_of_house
+│   │   └── hosting.rs
+│   ├── front_of_house.rs
+│   └── lib.rs``
+```
