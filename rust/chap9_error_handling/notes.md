@@ -20,6 +20,7 @@ You can explicit cause this type of error with the `panic!` macro.
 fn main() {
     panic!("crash and burn");
 }
+```
 
 ## Recoverable errors with Result
 
