@@ -93,3 +93,38 @@ With this you use the `?` to make the testing more conveninent to write tests th
 However, with the Result type you can't use the `#[should_panic]` annotation.
 
 Furthermore, in order to assert that an operation return an `Err`, don't use `?`. Use `assert!(value.is_err())` instead.
+
+# Testing flux control
+
+Use `cargo test -- --something` to pass something to the test.
+
+Tests are run in parallel. So, dont use the same resources and dont make the tests depend on each other.
+
+To run test in serial mode: `cargo test -- --test-threads=1`
+
+Any output that goes to stdout is not printed if the test passes. If you want to enable it, use `cargo test -- --show-output`
+
+If you want to filter the tests from a suite of test, you can pass the test name or a part of it the CLI: `cargo test test_name`. If more than one test matches the string passed, they are run as well.
+
+You can also ignore a test putting the annotation `#[ignore]` after the `[test]` annotation. On the other hand, you can run just the ignored tests using `cargo test -- --ignored`. And also, you can use `cargo test -- --inclede-ignored` to run all tests.
+
+# Test organization
+
+Rust community divides tests into unit tests and integration tests.
+
+## Unit tests
+
+Generally, they are placed in the same file that the function that is being tested is declared. The `#[cfg(test)]` ensures that the snippet will only be compiled when using `cargo test` and not when using `cargo build`.
+
+Testing private functions are possible in rust.
+
+## Integration tests
+
+They are placed in a separeted `tests` folder in the root of the directory. Each file is a separeted crate, so we need to bring the `use` keyword to bring the test into scope.
+We do not need to add `#[cfg(test)]` to the integration tests
+
+The integration tests are only be run if all unit tests passing.
+
+To create a module with common code to be used by all test, place them in `test/common/mod.rs` using the old naming convention. In this way, the file will not be shown in the stdout of the tests.
+
+You can't create integration tests for functions defined in `src/main.rs`. Therefore, it's recommended that those functions are defined in `src/lib.rs` and the main file only have a minimum code that call functions in the lib file.
