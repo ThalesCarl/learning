@@ -150,3 +150,122 @@ fn main() {
 // Dropping CustomSmartPointer with data `some data`!
 // CustomSmartPointer dropped before the end of main.
 ```
+
+# `Rc<T>`, the Reference Counted Smart Pointer
+
+
+Usually, one value have just one owner, but there is some cases (e. g., nodes in a graph data structure) where the value shouldnt be cleaned up unless all the owners are gone.
+
+The `Rc<T>` keeps a counter of the number of references in order to determine whether or not the value is still in use. If there are zero references to a value, the value can be cleaned up without any references becoming invalid.
+
+As a smart pointer, `Rc<T>` will allocate memory on the heap, because we cant determine at compile time which part will finish using the data last. If we knew, we could just use regular ownership.
+
+Note that `Rc<T>` is only valid for use in single-threaded scenarios.
+
+```rust
+enum List {
+    Cons(i32, Rc<List>,
+    Nil,
+}
+
+use crate::List::{Cons, Nil};
+use std::rc::Rc;
+
+fn main() {
+    let a = Rc::new(Cons(5, Rc::new(Cons(10, Rc::new(Nil)))));
+    let b = Cons(3, Rc::clone(&a)); // Does not deep copy, just increase the reference count
+    let c = Cons(4, Rc::clone(&a)); // It could be called a.clone(), but the convention is Rc::clone(&a)
+}
+```
+
+`Rc::clone(&a)` creates the reference nad increases the reference counter. Note that `Rc<T>`'s `Drop` trait will decrease the reference counter.
+
+`Rc<T>` only allow immutable references, because you would break the ownership rules with mutable references. In order to do that we will need to use `unsafe` stuff. Stick around!
+
+# `RefCell<T>` and Interior Mutability Pattern
+
+`RefCell<T>` behaves like a `Box<T>` but with the difference that it enforces the ownership rules at runtime instead of at compile time, which means that instead of getting a compile error when breaking the ownership rules, the program will panic and exit.
+
+Notice that with this difference, using `RefCell<T>` will have a small penalty in performance because we will track the borrowing rules at runtime rather than compile time.
+
+Similar to `Rc<T>`, `RefCell<T>` is only for use in single-threaded scenarios.
+
+The include parameter to this type is `std::cell::RefCelli`
+
+To get a mutable reference use the function `borrow_mut`, that will return a `RefMut<T>` smart pointer. On the other hand, use `borrow` to get an immutable reference, of the type `Ref<T>` smart pointer.
+
+# Combining `Rc<T>` and `RefCell<T>` to allow multiple owners to mutable data. 
+
+
+```rust
+enum List {
+    Cons(Rc<RefCell<i32>>, Rc<List>,
+    Nil,
+}
+
+use crate::List::{Cons, Nil};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+fn main() {
+    let value = Rc::new(RefCell::new(5));
+
+    let a = Rc::new(Cons(Rc::clone(&value), Rc::new(Nil)));
+
+    let b = Cons(Rc::new(RefCell::new(3)), Rc::clone(&a));
+    let c = Cons(Rc::new(RefCell::new(4)), Rc::clone(&a));
+
+    *value.borrow_mut() += 10;
+
+    println!("a after = {:?}", a); // value: 15
+    println!("b after = {:?}", b); // value: (3, (15, Nil))
+    println!("c after = {:?}", c); // value: (4, (15, Nil))
+}
+```
+
+# References Cycles can leak memory 
+
+A reference cycle occurs when the refernce count never hits zero and therefore the value will never be dropped.
+
+Usually references circles happens when you have a `RefCell<Rc<T>>`.
+
+References circles would not be caught either on compile time nor the first occurance in runtime. They will, instead, cause a overflow or consume all the memory available. 
+
+## Preventing ref cycles by turning an `Rc<T>` into a `Weak<T>`
+
+`Rc::clone` inscreases the `strong_count` of an `Rc<T>` and an `Rc<T>` is only cleaned up if its `strong_count` is zero.
+
+To turn a `Rc<T>` into a `Weak<T>` call `Rc::downgrade()`. This will increase the `weak_count` of the `Rc<T>`. The `weak_count` is like the `strong_count` but doesnt need to be 0 for the `Rc<T>` to be cleaned up.
+
+Because the value that Weak<T> references might have been dropped, to do anything with the value that a Weak<T> is pointing to, you must make sure the value still exists. Do this by calling the upgrade method on a Weak<T> instance, which will return an Option<Rc<T>>. You’ll get a result of Some if the Rc<T> value has not been dropped yet and a result of None if the Rc<T> value has been dropped.
+
+```rust
+use std::cell::RefCell;
+use std::rc::Rc;
+
+struct Node {
+    value: i32,
+    children: RefCell<Vec<Rc<Node>>>,
+    parent: RefCell<Weak<Node>>, // If the children is droped the parent is not but not vice versa
+}
+
+fn main() {
+    let leaf = Rc::new(Node {
+        value: 3,
+        children: RefCell::new(vec![]),
+        parent: RefCell::new(Weak::new()); // How does it know it is branch?
+    }); 
+
+    println!("leaf parent = {}", leaf.parent.borrow().upgrade()); 
+    
+    let branch = Rc::new(Node {
+        value: 5,
+        children: RefCell::new(vec![Rc::clone(&leaf)]),
+        parent: RefCell::new(Weak::new());
+    }); 
+
+    *leaf.parent.borrow_mut() = Rc::downgrade(&branch); // The relationship is stablished here
+    println!("leaf parent = {}", leaf.parent.borrow().upgrade()); 
+    
+```
+
