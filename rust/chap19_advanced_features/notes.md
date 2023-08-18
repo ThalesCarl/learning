@@ -395,4 +395,85 @@ I didn't get the applications of this.
 
 ## Dynamically sized type
 
-TODO
+For example, we have `&str`. This kind of type in rust is different from a `&T` because it stores a location and the size in the memory.
+
+Every trait is a dynamically sized type.
+
+If a size is known at compile time, rust provides the trait `Sized`.
+
+A trait `?Sized` means "`T` may or may not be `Sized`"
+
+# Functions and closures
+
+## Functions pointers
+
+Besides closures, you can also define a function that can receive another function using function pointers.
+
+```rust
+fn add_one(x: i32) -> i32 {
+    x + 1
+}
+
+fn do_twice(f: fn(i32) -> i32, arg: i32) -> i32 {
+    f(arg) + f(arg)
+}
+
+fn main {
+    let answer = do_twice(add_one, 5);
+
+    println!("Te answer is {}", answer); // Out: 12
+}
+```
+
+Unlike closures, `fn` is a type rather than a trait, so we specify `fn` as the parameter type directly.
+
+Function pointers implement all three of closure traits(`Fn`, `FnMut`, and `FnOnce`), meaning you can always pass a function pointer as an argument for a function that expects a closure.
+
+For example, we can use the `map` method of the `Iterator` trait using a closure like
+
+```rust
+let list_of_numbers = vec![1, 2, 3];
+let list_of_strings: Vec<String> =
+    list_of_numbers.iter().map(|i| i.to_string()).collect();
+```
+
+and using a function pointer like
+
+```rust
+let list_of_numbers = vec![1, 2, 3];
+let list_of_strings = Vec<String> =
+    list_of_numbers.iter().map(ToString::to_string).collect();
+```
+
+Function pointers are usefull when interacting with external `C` code, because the `C` language also have function pointers but it does not have closures.
+
+Enums variants names are also function pointers, so we can use them for methods that takes closures, like this:
+
+```rust
+enum Status {
+    Value(u32),
+    Stop,
+}
+
+let list_of_statuses: Vec<Status> = (0u32..20).map(Status::Value).collect();
+```
+
+## Returning closures
+
+You can't return a closure directly because closure are represented by traits. Also you can't use the `fn` function pointer type as a return type.
+
+The below code will not compile (don't ask me why):
+
+```rust
+fn returns_closure() -> dyn Fn(i32) -> i32 {
+    |x| x + 1
+}
+```
+
+But with this hack it will (also didnt get it why):
+
+```rust
+fn returns_closure() -> Box<dyn Fn(i32)> -> i32 {
+    Box::new(|x| x + 1)
+}
+```
