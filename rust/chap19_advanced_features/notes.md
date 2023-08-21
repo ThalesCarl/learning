@@ -477,3 +477,92 @@ fn returns_closure() -> Box<dyn Fn(i32)> -> i32 {
     Box::new(|x| x + 1)
 }
 ```
+
+# Macros
+
+Macros are a way of writing code that writes other code, which is known as metaprogramming. Metaprograming is useful for reducing the amount of code you use to write and maintain. The difference between a function and a macro is that the macro are expanded before the compiler interprets the meaning of the code, so a macro can, for example, implement a trait on a given type.
+
+The downside to implement a macro instead of a function is that macro definitions are more complex, hard to read, understand and maintain than functions.
+
+Finally, a macro must be defined before its use in a file, which is different from a function that can be defined anywhere.o
+
+## Declarative macros
+
+We will create declarative macros with the macro `macro_rules!`. The declarative macro works simillirary with a matching pattern. Let's use the `vec!` definition as an example. Recall that a `vec!` can be create using 
+
+```rust
+let v: Vec<u32> = vec![1, 2, 3]`
+```
+
+Notice that we wouldnt be able to use a function to create the vector because we wouldnt know the number or type of the values up front. A slightly simplified definition of the `vec!` macro is
+
+```rust
+#[macro_export] // this macro should be made available whenever the crate is broght into scope
+macro_rules! vec { // start with the name of the macro to be defined
+    ( $( $x:expr ),*) => { // if the pattern passed to the macro is matched with the lhs of =>
+        {
+            let mut temp_vec = Vec::new();
+            $(
+                temp_vec.push($x);
+            )*
+            temp_vec
+        }
+    };
+}
+```
+
+The generated code is inside the `$()*` pattern. In this case, it would be `temp_vec.push($x)` and the `$x` will be transformed into every case that matched the pattern. Suppose we call the `vec![1, 2, 3]` the code generated would be:
+
+```rust
+{
+    let mut temp_vec = Vec::new();
+    temp_vec.push(1);
+    temp_vec.push(2);
+    temp_vec.push(3);
+    temp_vec
+}
+```
+
+Question: what tells that this macro uses the square bracket `[]` and the `println!` use the parenthesis `()`?
+
+
+## Procedural macros
+
+It's more like a function (called also a procedure). 
+
+Procedural macros accept some code as an input, operate on that code, and produce some code as an output.
+
+The three types of procedural macros are custom derive, attribute-like and function-like. All work in a similar fashion.
+
+```rust
+use proc_macro;
+
+#[some_attribute]
+pub fn some_name(input: TokenStream) -> TokenStream {}
+```
+
+The function that defines the procedual macro must have a `TokenStream` as input and output.
+
+### `derive` macro
+
+Look `hello_crate` folder
+
+### Attribute like macros
+
+Similar to custom derive macros, but instead of generating code for the `derive` attribute, they allow you to create new attributes.
+
+I didn't get the book example.
+
+### Function-like macros
+
+It can work like a `macro_rules` macro but it can be more complex. Also works with a `TokenStream` as input and output. For example, consider we are creating a `sql!` macro that could be used like
+
+```rust
+let sql = sql!(SELECT * FROM posts where id = 1);
+```
+
+The function-like macro that would parse this SQL statement would have the following signature:
+
+```rust
+pub fn sql(input: TokenStream) -> TokenStream {}
+```
