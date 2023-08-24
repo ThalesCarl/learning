@@ -5,15 +5,16 @@ use std::{
     thread,
     time::Duration,
 };
+use hello::ThreadPool;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap(); // bind is anologous to new in other structs
+    let pool = ThreadPool::new(4);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
 
-        // naive implementation, it could cause ddos attacks
-        thread::spawn(|| {
+        pool.execute(|| {
             handle_connection(stream);
         });
     }
