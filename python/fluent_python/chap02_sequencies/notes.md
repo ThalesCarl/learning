@@ -1,6 +1,4 @@
-# Sequencies
-
-## Built in sequencies
+# Built in sequencies
 
 - Containers: Can hold different types of data, including inner containers. Examples: list, tuple and collection.deque
 - Plain sequencies: store simple objects. Examples: str, bytes, array.array.
@@ -9,12 +7,12 @@ Containers hold just references to the objects it contains, while plain sequenci
 
 Every python object has a header with metadata.
 
-## Sequencies according with mutability
+# Sequencies according with mutability
 
 - Mutable sequencies: list, bytearray, array.array and collections.deque
 - Imutable sequencies: tuple, str and bytes.
 
-## List comprensions and generator expressions
+# List comprensions and generator expressions
 
 A listcomp is always a method of creating a new list. 
 
@@ -67,7 +65,7 @@ for tshirt in (f'{c}{s}' for c in colors for s in sizes):
     print(tshirt)
 ```
 
-## Tuples are not just immutable lists
+# Tuples are not just immutable lists
 
 Besides being a immutable list, tuples can be used as unnamed registers.
 
@@ -88,7 +86,7 @@ A tuple is immutable list, but the items that a tuple contains could be mutable.
 
 The dunder methods available for tuples are the same as for lists, except the ones that evolves addition or removal of components and the `__reversed__`.
 
-## Unpacking
+# Unpacking
 
 Unpacking avoids the use of indexes to break a sequence, which is unnecessary and error prune.
 
@@ -129,7 +127,7 @@ Unpacking aligned tuples: see example `nested_sequences.py`
 
 You can also use a list or a tuple as the target of the unpacking, but beware that this is rare. However, remember that tuples with one item must have a trailing comma: `(record, ) = my_function()`. If you forget this comma, you are causing a silent bug.
 
-## Pattern matching
+# Pattern matching
 
 Available for python 3.10 and forward.
 
@@ -173,3 +171,185 @@ To match any number of arguments that can be discarded, use `*_`. For example: `
 The optional guard `if`  is only evaluated if the pattern match, and it is possible to use the variables defined in the pattern
 
 TODO: review with the guys the `lis.py` example of section 2.6.1
+
+# Slicing
+
+Slices always exclude the last item, because of the C convention of starting a array at index 0
+
+```python
+l = [10, 20, 30, 40, 50, 60]
+l[:2] # [10, 20]
+l[2:] # [30, 40, 50, 60]
+l[1:5] # [20, 30, 40, 50]
+l[1:5:2] # [20, 40]
+s = 'bicycle'
+s[::3] # 'bye'
+s[::-1] # 'elcycib', invert order using slicing
+s[::-2] # 'eccb'
+```
+
+The notation `a:b:c` is only valid betwenn `[]` and produces a slice object: `slice(a, b, c)`, that can be useful when you want to split a line in a known range.
+
+The dunder methods `__getitem__` and `__setitem__` will use the arguments passed to `[]` with commas as a tuple input. This is used in numpy to get something like `m[m:n, k:l]`, but it is not acceptable in Python lists.
+
+Except for `memoryview`, all builtins Python objects are unidimentional and don't accept the `a[1, 2]` notation. 
+
+The ellipsis (`...`) can be used by some places in numpy, but not in the standard python lib.
+
+Slices can be used to do inplace attribution:
+
+```python
+l = list(range(10)) # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+l[2:5] = [20, 30] # [0, 1, 20, 30, 5, 6, 7, 8, 9]
+del l[5:7] # [0, 1, 20, 30, 5, 8, 9]
+l[3::2] # [0, 1, 20, 11, 5, 22, 9]
+l[2:5] = 100 # Error: can only assign an iterable
+l[2:5] = [100] # [0, 1, 100, 22, 9]
+```
+
+# Using `+` and `*` with sequences
+
+To use this operators, the sequences must be of the same type and a new sequence will be created from this same type.
+
+```python
+l = [1, 2, 3]
+l * 5 # [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]
+5 * 'abcd' # 'abcdabcdabcdabcdabcd'
+```
+
+But beware, lists of lists are not suppose to be started with the notation `[[]] * n` because this will create a list of the same list, i. e., when you try to modify on item of one of the internal list, it will modify all of them.
+
+# Using `+=` and `*=` with sequences
+
+The dunder method that do `+=` work is `__iadd__`, which stands for in-place addition, but if `__iadd__` is not implemented, python will call `__add__`. For lists, bytearrays and array.array, `a += b` is equal to `a.extend(b)`, for other object it will do `a = a + b`, where first `a + b` is computed and stored in a new object that will be afterwards emplaced above previous value of `a`.
+
+The same ideas are valid for `*=` which used the `__imut__` method.
+
+```python
+l = [1, 2, 3]
+l *= 2 # [1, 2, 3, 1, 2, 3] same memory addres
+t = (1, 2, 3)
+t *= 2 # (1, 2, 3, 1, 2, 3) different memory address because tuples are immutable, hence a new object was created
+```
+
+Avoid putting mutable objects in tuples just to prevent the error below
+
+```python
+t = (1 , 2, [30, 40])
+t[2] += [50, 60] # Produces a exception but modifies the object anyway
+t # (1, 2, [30, 40, 50, 60])
+```
+
+# Sorting
+
+There are two sorting methods in python: the buildin `sorted()` function and the `list.sort()` method. The differnce is that the `list.sort()` will perform the sorting in place and will return a `None` to explicity say that. On the other hand, `sorted()` will get any iterable, sort it and return a new object.
+
+Both methods have two optional parameters:
+  - `reverse`: if true, the order is decrescent.
+  - `key`: a function that will be used to compare the elements of the iterable.
+
+```python
+fruits = ['grape', 'raspberry', 'apple', 'banana']
+sorted(fruits) # ['apple', 'banana', 'grape', 'raspberry'] # alfabetic order
+sorted(fruits, reverse=True) # ['raspberry', 'grape', 'banana', 'apple']
+sorted(fruits, key=len) # ['grape', 'apple', 'banana', 'raspberry'] 
+fruits.sort() # ['apple', 'banana', 'grape', 'raspberry'] # change the original list
+```
+
+After a list is ordered you can search in it using the builtin method `bisect`. You can also add a item to a sorted list using the `bisect.insort(seq, item)` to keep the list in order
+
+# Other sequences
+
+## Arrays
+
+An `array.array` is ideal for substitute a list composed of only floating point numbers. This data structure is really close to a C array. You will pass in the construction the type of the array using the `typecode`, which is a letter. For example, `b` indicates that the array will have only items that have one byte.
+
+```python
+from array import array
+from random import random
+floats = array('d', (random() for i in range(10**7)))
+```
+
+Arrays are way faster than lists, around 60 times faster.
+
+For specific binary data, python has `bytes` and `bytearray` that will be discussed in chapter 4.
+
+Also arrays have the following interesting funcions:
+  - s.frombytes(b): read from a `bytes` object `b`
+  - s.fromfile(f, n): read `n` items from `n` file
+  - s.fromlist(l): add items from a list `l`. If one raises a `TypeError`, no item is added.
+
+Until Python 3.10, an `array` does not have the `a.sort()` function. If you need to sort an array, you need to use the `sorted()` builtin function.
+
+## Memoryviews
+
+The builtin `memoryview` object is similar to an `np.array` without the math support. It allows to share memory between arrays without the need to copy bytes. Use the `.cast()` to create a new memoryview from a previous one sharing the same memory.
+
+```python
+from array import array
+octets = array('B', range(6))
+m1 = memoryview(octets)
+m1.tolist() # [0, 1, 2, 3, 4, 5]
+m2 = m1.cast('B', [2, 3])
+m2.tolist() # [[0, 1, 2],[3, 4, 5]]
+m3 = m1.cast('B', [3, 2])
+m3.tolist() # [[0, 1], [2, 3], [4, 5]]
+m2[1, 1] = 22
+m3[1, 1] = 33
+print(octets) # [0, 1, 2, 33, 22, 5]
+
+# Bad usage
+numbers = array('h', [-2, -1, 0, 1, 2])
+memv = memoryview(numbers)
+len(memv) # 5
+memv[0] # -2
+memv_oct = memv.cast('B')
+memv_oct.tolist() # [254, 255, 255, 255, 0, 0, 1, 0, 2, 0]
+memv_oct[5] = 4
+numbers # [-2, -1, 1024, 1, 2] 
+```
+
+## Numpy arrays
+
+This lib implements multidimensional arrays and matrices.
+
+It is base of `scipy` which implements a lot of algorithms of linear algebra, numeric calculus and statistics.
+
+```python
+import numpy as np
+a = np.arange(12)
+a.shape # (12,)
+a.shape = 3, 4 # create a matrix
+```
+
+## Deques
+
+A list can be used as an `stack` with the `.append` and `.pop` methods, and as a `queue` with the `.append` and `.pop(0)` methods. but the `.pop(0)` is expensive because it needs to realocate all the items of the list. Here it comes the `collections.deque` data structure, that is a double ended queue that is designed to be fast in the insertion and deletion processes.
+
+```python
+from collections import deque
+dq = deque(range(10), maxlen=10)
+dq.rotate(3) # Take 3 items from the right and insert them on the left
+print(dq) # [7, 8, 9, 0, 1, 2, 3, 4, 5, 6]
+dq.rotate(-4) # Take 4 items from the left and insert them on the right
+print(dq) # [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+dq.appendleft(-1) # Adding items to a full deck will descard the last one
+print(dq) # [-1, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+dq.extend([11, 22, 33])
+print(dq) # [3, 4, 5, 6, 7, 8, 9, 11, 22, 33]
+dq.extendleft([10, 20, 30, 40])
+print(dq) # [40, 30, 20, 10, 3, 4, 5, 6, 7, 8]
+```
+
+A `deque` will implement most of the list's methods and some specific ones.
+
+Notice that removing items from the middle is expensive. Question: inserting is not? Why?
+
+The operations `append` and `popleft` are atomic, hence, they can be used safely in a multithread application without locks.
+
+## Other types
+
+- `queue` implements `SimpleQueue`, `Queue`, `LifoQueue` and `PriorityQueue`
+- `multiprocessing` implements `SimpleQueue` and `Queue` used to communication between processes.
+- `asyncio` implements `Queue`, `LifoQueue`, `PriorityQueue` and `JoinableQueue` used for asyncronous programming.
+- `heapq` allows to use a queue of heap type (What does this mean?)
