@@ -171,3 +171,81 @@ d_proxy[2] = 'x' # Error: not allowed
 d[2] = 'B'
 print(d_proxy) # mappingproxy({1: 'A', 2: 'B'})
 ```
+
+# View of a dict
+
+The methods `.keys()`, `.values()` and `.items()` return read only objects, that are references to a dict's internals, i. e., not copies of the original data. This allow excess memory usage because it does not create lists like python 2 used to do.
+
+```python
+d = dict(a=10, b=20, c=30)
+values = d.values()
+len(values) # 3
+list(values)  # [10, 20, 30]
+reversed(values) # <dict_reversevalueiterator object at 0x10e9e7310>
+values[0] # Error: values is not subscriptable
+d['z'] = 99
+print(values) # dict_values([10, 20, 30, 99]), is updated automatically
+```
+
+The views of a dict `dict_values`, `dict_keys` and `dict_items` are internal classes that cannot be instantiate by any other method than the ones listed before. The simplest one is `dict_values` that only implements `__len__`, `__iter__` and `__reversed__`. The other two implements several methods of `sets` because they are one of them.
+
+# Dict implementation consequences
+
+- Keys must be hashable
+- Items access is really fast, even if the dict has millions of entries. Python will compute the hash of a key and will find the value rapidaly.
+- Key order is preserved (from python 3.7 and on)
+- Dicts are less memory efficient than arrays.
+- Python needs to keep 1/3 of the hash table empty (didnt get this part?)
+- To save memory, avoid creating instance attributes outside of `__init__` method, because a python object keeps the instance attributes in a `__dict__` dict that is updated any time you create a new instance attribute.
+
+# Sets
+
+A set is a collection of unique objects. In python there is a `set` and a `frozenset` that are a mutable and imutable implementations of a set, respectivally.
+
+The first use of them is to eliminate duplicates of a list. 
+
+```python
+l = ['spam', 'spam', 'eggs', 'spam', 'bacon', 'eggs']
+l = list(set(l))
+print(l) # ['eggs', 'spam', 'bacon']
+
+# to keep the order of appearance of the items you can use a dict
+l = list(dict.fromkeys(l).keys())
+print(l) # ['spam', 'eggs', 'bacon']
+```
+
+
+A set has a number of nice methods:
+- union: `a | b`
+- intersection: `a & b`
+- difference: `a - b`
+- synmetric difference: `a ^ b`
+
+You can create sets using the `a = {1, 2}` notation. Just notice you cant use this notation for an empty set like `{}`, becuase this is already used to create an empty dict. In order to create an empty set use `set()`.
+
+You can also create sets using the listcomp syntax `a = {i for i in range(10) if i % 2 == 0}`
+
+Becuase `set` and `frozenset` is implemented using hash tables the following is observed:
+- The elements of a `set` must be hashable, but the `set` object is not hashable. However, a `frozenset` is hashable.
+- The elements of a `set` must implement `__hash__` and `__eq__`
+- A element identification in a set is really fast
+- Set uses more memory than an array
+- The order of the elements is based on the insertion order, but not in a reliable way. If two elements are different but have the same hash number, their position will depend on the order of insertion (Question: a set is ordered by the hash number?)
+- Add new elements to a set will change its order.
+
+## Sets operations
+
+While you can do `a | b` to create a union of two sets, you can also do `a.union(b)` where `b` can be a set or any other iterable composed of hashables items. Since python 3.5 you can use `u = {*a, *b, *c}` to create a set from any iterable with hashable items.
+
+See the tables in the book for a glance in all methods available for sets and consequenctially for views of dicts.
+
+```python
+d1 = dict(a=1, b=2, c=3, d=4)
+d2 = dict(b=20, d=40, e=50)
+d1.keys() & d2.keys() # {'b', 'd'}
+s = {'a', 'e', 'i'}
+d1.keys() & s # {'a'}
+```
+
+
+
