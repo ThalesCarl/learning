@@ -120,3 +120,122 @@ fp4.read() # returns a bytes object, so the output would be b'caf\xc3\xa9'
 The default enconding is given by `locale.getpreferredencoding()` method of the `locale` builtin package. For a iterative python section, the stdin/stdout/stderr on windows is utf-8 but for a file, they are `cp1252.`. On unix based systems, it's everything utf8.
 
 Therefore, the best advice is to avoid trusting the default encondings and always use the `enconding=` kwarg on the `open()` function.
+
+# Unicode normalization
+
+Because unicode chars can be composed of more than one byte, and some symbols can be expressed in more than just one way, the comparission of strings can be trick.  The solution is to use `unicodedata.normalize()`
+
+```python
+s1 = 'café'
+s2 = 'cafe\N{COMBINING ACUTE ACCENT}'
+print(s1, s2) # café café
+len(s1), len(s2) # 4, 5
+s1 == s2 # False
+
+from unicodedata import normalize
+len(normalize('NFC', s1)), len(normalize('NFC', s2)) # 4, 4
+len(normalize('NFD', s1)), len(normalize('NFD', s2)) # 5, 5
+```
+- NFC: combines unicode points to produce the shortest string
+- NFD: expand composed chars in base chars and separete them
+- NFKC: same as NFC but with compatibility substitution (beware for info lost)
+- NFKD: same as NFD but with compatibility substitution (beware for info lost)
+
+```python
+from unicodedata import normalize
+ohm = '\u2126'
+name(ohm) # 'OHM SIGN'
+ohm_c = normalize('NFC', ohm)
+name(ohm_c) # 'GREEK CAPITAL LETTER OMEGA'
+ohm == ohm_c # False
+normalize('NFC', ohm) == normalize('NFC', ohm_c) # True
+
+half = '\N{VULGAR FRACTION ONE HALF}'
+print(half) # ½
+normalize('NFKC', half) # '1/2'
+four_squared = '4²'
+normalize('NFKC', four_squared) # '42', note how it lost its meaning
+```
+
+## Case folding
+
+Essentially `str.casefold()` do the same as `str.lower()` but convert some of the chars to different unicode points
+
+Use `normalize('NFC', something)` for most of applications and `str.casefold()` when does not matter if the char is capital.
+
+## Removing all diacritcs marks
+
+Sometimes when dealing with input from the user, it is better to remove all the accents (diacritics marks)
+
+
+```python
+import string
+import unicodedata
+
+def shave_marks(txt):
+  norm_txt = unicodedata.normalize('NFD', txt):
+  shaved = ''.join(c for c in norm_txt if not unicodedata.combining(c))
+  return unicodedata.normalize('NFC', shaved)
+
+Greek = 'Ζέφυρος, Zéfiro'
+shave_marks(Greek) # 'Ζεφυρος, Zefiro'
+order = '“Herr Voß: • ½ cup of Œtker™ caffè latte • bowl of açaí.”'
+shave_marks(order) # '“Herr Voß: • ½ cup of Œtker™ caffe latte • bowl of acai.”'
+```
+
+Notice that "έ" quando "é" were substituted in the Greek example. To remove accents only from latin letters, use the following:
+
+```python
+def shave_marks_latin(txt):
+  norm_txt = unicodedata.normalize('NFD', txt)
+  latin_base = False
+  preserve = []
+  for c in norm_txt:
+    if unicodedata.combining(c) and latin_base:
+      continue
+    preserve.append(c)
+    if not unicode.combining(c):
+      latin_base = c in string.ascii_letters
+  shaved = ''.join(preserve)
+  return unicodedata.normalize('NFC', shaved)
+```
+
+# Unicode ordering
+
+Unicode basic ordering compares code points. However, this could cause undesired behaviour
+
+```python
+fruits = ['caju', 'atemoia', 'cajá', 'açaí', 'acerola']
+sorted(fruits) # ['acerola', 'atemoia', 'açaí', 'caju', 'cajá']
+```
+
+The correct way should be `['açaí', 'acerola', 'atemoia', 'cajá', 'caju']`. To enforce this, we should use the `locale.strxfm` method:
+
+```python
+import locale
+my_locale = locale.setlocale(locale.LC_COLLATE, 'pt_BR.UTF-8')
+fruits = ['caju', 'atemoia', 'cajá', 'açaí', 'acerola']
+sorted_fruits = sorted(fruits, key=locale.strxfrm)
+```
+
+There is the `pyuca` lib that do this without considering the `locale` and using the Unicode Collation Algorithm.
+
+# Unicode database
+
+The module `unicodedata` is the unicode database, you use it to search for unicode chars.  See the `find_char.py` to see a application. 
+
+# Double API for `str` and `bytes`
+
+Some functions in python accept both `str` and `bytes`, but have a different behaviour depending on which one of them.
+
+## Regular expressions
+
+If you use `bytes`, re such as `\d` and `\w` will match only for ASCII characters, but if you use `str` it will match with Unicode and ASCII chars. See the example on the book to understand it.
+
+## `os` module
+
+The GNU/Linux kernel does not know about Unicode, so you can find some filenames that will not suit any codec and should be treated as normal as regular filenames. Because of this, the `os` module also accepts the `bytes` objects anywhere a filename is expected.
+
+Two usefull  functions to deal with this are:
+  - `os.fsencode()`
+  - `os.fsdecode()`
