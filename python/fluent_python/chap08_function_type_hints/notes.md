@@ -138,3 +138,116 @@ print(table) # [('drake', 'koala', 'yak'), ('fawn', 'lynx', 'zapus'), ('heron', 
 
 Use the syntax `MappingType[KeyType, ValueType]`. The `dict`, the mappings from `collections` and `collections.abc` support this notation since python 3.9.
 
+```python
+import sys
+import re
+import unicodedata
+from collections.abc import Iterator
+
+RE_WORD = re.compile(r'\w+')
+STOP_CODE = sys.maxunicode + 1
+
+def tokenize(text: str) -> Iterator[str]:
+    """return iterable of uppercased words"""
+    for match in RE_WORD.finditer(text):
+        yield match.group().upper()
+    
+def name_index(start: int = 32, end: int = STOP_CODE) -> dict[str, set[str]]:
+    index: dict[str, set[str]] = {}
+    for char in (chr(i) for i in range(start, end)):
+        if name := unicodedata.name(char, ''):
+            for word in tokenize(name):
+                index.setdefault(word, set()).add(char)
+    return index
+```
+
+## Abstract classes
+
+Ideally, a function should accept abstract types such as
+
+```python
+from collections.abc import
+def name2hex(name: str, color_map: Mapping[str, int]) -> list[str]:
+```
+
+Using `abc.Mapping` allow the user to use a instance of `dict`, `defaultdict`, `ChainMap`, a subclass of `UserDict`. Notice that the return is a concrete type of `list[str]` because according with Postel's law (be conservative to what you send and liberal to what you receive)
+
+The exception is the numbers that is preferable to use `int`, `float` or `complex` instead of `abc.Number`
+
+## `abc.Iterable`
+
+It's preferable to use `Iterable` and `Sequence` in the function's type hints.
+
+```python
+from collections.abc import Iterable
+
+FromTo = tuple[str, str]
+
+def zip_replace(text: str, changes: Iterable[FromTo]) -> str:
+    for from_, to in changes:
+        text = text.replace(from_, to)
+    return text
+
+l33t = [('a', '4'), ('e', '3'), ('i', '1'), ('o', '0')]
+text = 'mad skilled noob powned leet'
+zip_replace(text, l33t)
+# 'm4d sk1ll3d n00b p0wn3d l33t'
+```
+
+The difference between a `abc.Sequence` and `abc.Iterable` is that in the first we are concerned about the size of the parameter, while in the second, in general we assume that we will perform the operation defined in the function for all members of the iterable.
+
+## Parametrized generic and `TypeVar`
+
+A generic type is parametrized when it's written like `list[T]` where `T` is a variable type that might be linked to a different type at every use. This allow that a input be reflect in the output of a function dynamically, but they are the same type.
+
+
+```python
+from collections.abc import Sequence
+from random import shuffle
+from typing import TypeVar
+
+T = TypeVar('T')
+
+def sample(population: Sequence[T], size: int) -> list[T]:
+    if size < 1:
+        raise ValueError('size must be >= 1')
+    result = list(population)
+    shuffle(result)
+    return result[:size]
+```
+
+`TypeVar` is a hack to accomplish this idea. When used for the input it will mean any type, but in the output, it means the same type as the input.
+
+A `TypeVar` might be restricted to certain types, like `NumberT = TypeVar('NumberT', float, Decimal, Fraction)`
+
+Even more, we can delimit a limit to where a TypeVar might be extender with the `bound` keyarg in the TypeVar creation. For example, `HashableT = TypeVar('HashableT', bound=collection.abc.Hashable)`
+
+Finally, we have the type `typing.AnyStr` that is a `TypeVar` defined as `AnyStr = TypeVar('AnyStr', bytes, str)` that can be used for methods that accept these both types.
+
+## Protocols
+
+Question: I did not get the idea from the book's definition
+
+```python
+from typing import Protocol, Any
+
+class SupportLessThan(Protocol):
+    def __lt__(self, other: Any) -> bool: ...
+```
+
+A type `T` is consistent-with a protocol `P` if `T` implements all methods defined in `P`.
+
+TODO: See this section again after reading the chapter 13.
+
+TODO: finish the notes from here to the rest of the chapter after the meeting
+
+## `Callable`
+
+## `NoReturn`
+
+
+# Only positional parameters
+
+# Wrong typing errors
+
+Since type hints are a new feature in python, we still can find problems of false positives (mypy will complain about correct code) and false negatives (mypy will not complain about incorrect code)
