@@ -10,6 +10,7 @@
     "nodemon": "^3.1.9"
   },
   "scripts": {
-    "dev": "nodemon index.js"
+    "crud": "nodemon crud.js",
+    "app": "nodemon ./src/server.js"
   }
 }
