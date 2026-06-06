@@ -4,7 +4,7 @@ import numpy as np
 import pyvista as pv
 import time
 
-# Configure pyvista and vtk to suppress errors because I was getting a ennoying
+# Configure pyvista and vtk to suppress errors because I was getting a annoying
 # "Could not set shader program" error and traceback
 pv.vtk_verbosity('off')
 vtk_output = vtk.vtkOutputWindow.GetInstance()
@@ -14,10 +14,13 @@ vtk_output.SetInstance(vtk.vtkStringOutputWindow())
 GRAVITY = 9.81 # [m/s2]
 BOX_HEIGHT = 10.0
 BOX_WIDTH = 10.0
+RADIUS = 1.0
+COLLISION_DAMPING = 0.8
 
 def main():
     position = np.array([0.0, 0.0, 0.0])
     velocity = np.array([0.0, 0.0, 0.0])
+    bounds_size = np.array([BOX_WIDTH, BOX_HEIGHT, 0.0])
 
     pl = pv.Plotter()
     # Add bounding box
@@ -32,7 +35,7 @@ def main():
     pl.add_mesh(box, color='white', line_width=5.0, show_edges=True, lighting=False)
     
     # Add particle
-    circle = pv.Circle(radius=1.0)
+    circle = pv.Circle(radius=RADIUS)
 
     # Save a copy of the original points so we can modify them relatively
     original_points = circle.points.copy()
@@ -58,6 +61,7 @@ def main():
             # Update velocity and position
             velocity[1] += -1.0 * GRAVITY * delta_t
             position += velocity * delta_t
+            resolve_collisions(position, velocity, bounds_size)
             
             # Update the geometry points
             circle.points = original_points + position
@@ -76,5 +80,16 @@ def main():
         pl.close()
         sys.exit()
 
+def resolve_collisions(position: np.ndarray, velocity: np.ndarray, bounds_size: np.ndarray):
+    half_bounds_size = 0.5 * bounds_size - RADIUS
+
+    if abs(position[0]) > half_bounds_size[0]:
+        position[0] = half_bounds_size[0] * np.sign(position[0])
+        velocity[0] *= -1.0 * COLLISION_DAMPING
+
+    if abs(position[1]) > half_bounds_size[1]:
+        position[1] = half_bounds_size[1] * np.sign(position[1])
+        velocity[1] *= -1.0 * COLLISION_DAMPING
+        
 if __name__ == "__main__":
     main()
