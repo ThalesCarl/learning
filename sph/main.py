@@ -1,8 +1,10 @@
+import math
 import sys
 import vtk
 import numpy as np
 import pyvista as pv
 import time
+from dataclasses import dataclass
 
 # Configure pyvista and vtk to suppress errors because I was getting a annoying
 # "Could not set shader program" error and traceback
@@ -14,19 +16,28 @@ vtk_output.SetInstance(vtk.vtkStringOutputWindow())
 GRAVITY = 9.81 # [m/s2]
 BOX_HEIGHT = 10.0
 BOX_WIDTH = 10.0
-RADIUS = 1.0
-COLLISION_DAMPING = 0.8
+RADIUS = 0.3
+COLLISION_DAMPING = 1.0
+NUM_PARTICLES = 5
+BETWEEN_PARTICLE_SPACING = 0.0
 
 def main():
-    position = np.array([0.0, 0.0, 0.0])
-    velocity = np.array([0.0, 0.0, 0.0])
-
     pl = pv.Plotter()
+
     start_bounding_box(pl)
-    circle = start_particles(pl)
+    # positions: list[np.ndarray] = []
+    # velocities: list[np.ndarray] = []
+    positions: np.ndarray = np.zeros(shape=(NUM_PARTICLES, 3), dtype=float)
+    velocities: np.ndarray = np.zeros(shape=(NUM_PARTICLES, 3), dtype=float)
+    circles = start_particles(pl, positions)
+    # draw_particles(pl, positions)
 
     # Save a copy of the original points so we can modify them relatively
-    original_points = circle.points.copy()
+    original_points = []
+    original_positions = positions.copy()
+    for circle in circles:
+        original_points.append(circle.points.copy())
+    # print(original_points)
 
     configure_plotter(pl)
     fps = 60.0
@@ -38,8 +49,12 @@ def main():
             if pl.render_window is None:
                 break
             
-            update(position, velocity, delta_t)
-            draw(original_points, circle, position)
+            update(positions, velocities, delta_t, circles)
+            # draw(original_points, circles, positions)
+            # print(circles)
+            # if frame == 1:
+            #     pl.show()
+            #     sys.exit()
 
             # Crucial: Tell PyVista to redraw the scene
             pl.update()
@@ -74,25 +89,48 @@ def configure_plotter(pl: pv.Plotter) -> None:
     # pl.show_axes()
     # pl.show_bounds()
     pl.show(interactive_update=True)
+    # pl.show()
+    # sys.exit(0)
     print("Starting endless loop. Close the window to stop.")
 
-def start_particles(pl: pv.Plotter) -> pv.PolyData:
-    # Add particle
-    circle = pv.Circle(radius=RADIUS)
+def start_particles(pl: pv.Plotter, positions: np.ndarray) -> list[pv.PolyData]:
+    # Place particles in a grid formation
+    particles_per_row = int(math.sqrt(NUM_PARTICLES))
+    particles_per_col = int((NUM_PARTICLES - 1) / particles_per_row + 1)
+    spacing = 2.0 * RADIUS + BETWEEN_PARTICLE_SPACING
 
-    pl.add_mesh(circle, color='cyan', show_edges=True, lighting=False)
-    return circle
+    colors={0: 'red', 1: 'green', 2: 'blue', 3: 'cyan', 4: 'magenta'}
+    circles = []
+    for i in range(NUM_PARTICLES):
+        x = (i % particles_per_row - particles_per_row / 2.0 + 0.5) * spacing
+        y = (int(i / particles_per_row) - particles_per_col / 2.0 + 0.5) * spacing
+        positions[i][0] = x
+        positions[i][1] = y
+        circle = pv.Circle(radius=RADIUS, resolution=100)
+        # circle.translate(positions[i], inplace=True)
+        circle.points += positions[i]
+        pl.add_mesh(circle, color=colors[i], show_edges=True, lighting=False)
+        circles.append(circle)
+    return circles
 
-def update(position: np.ndarray, velocity: np.ndarray, delta_t: float) -> None:
-    # Update velocity and position
-    velocity[1] += -1.0 * GRAVITY * delta_t
-    position += velocity * delta_t
-    resolve_collisions(position, velocity)
+
+def update(positions: np.ndarray, velocities: np.ndarray, delta_t: float, circles: list[pv.PolyData]) -> None:
+    for (position, velocity, circle) in zip(positions, velocities, circles):
+        velocity[1] += -1.0 * GRAVITY * delta_t
+        position += velocity * delta_t
+        resolve_collisions(position, velocity)
+
+        circle.points += velocity * delta_t
     
 
-def draw(original_points: pv.PolyData, circle: pv.PolyData, position: np.ndarray) -> None:
+def draw(original_points: list[pv.PolyData], circles: list[pv.PolyData], positions: np.ndarray) -> None:
     # Update the geometry points
-    circle.points = original_points + position
+    for (orig, circle, position) in zip(original_points, circles, positions):
+        print(f"{position=}")
+        print(f"{orig=}")
+        # circle.points = orig + position
+        circle.points += delta_x
+        print(f"after {circle.points=}")
 
 
 def resolve_collisions(position: np.ndarray, velocity: np.ndarray):
