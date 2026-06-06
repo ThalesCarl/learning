@@ -4,6 +4,12 @@ import numpy as np
 import pyvista as pv
 import time
 
+# Configure pyvista and vtk to suppress errors because I was getting a ennoying
+# "Could not set shader program" error and traceback
+pv.vtk_verbosity('off')
+vtk_output = vtk.vtkOutputWindow.GetInstance()
+vtk_output.SetInstance(vtk.vtkStringOutputWindow())
+
 # Constants
 GRAVITY = 9.81 # [m/s2]
 BOX_HEIGHT = 10.0
