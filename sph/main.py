@@ -2,15 +2,15 @@ import math
 import sys
 import vtk
 import numpy as np
-import pyvista as pv
+
 import time
 from dataclasses import dataclass
 
 # Configure pyvista and vtk to suppress errors because I was getting a annoying
 # "Could not set shader program" error and traceback
-pv.vtk_verbosity('off')
-vtk_output = vtk.vtkOutputWindow.GetInstance()
-vtk_output.SetInstance(vtk.vtkStringOutputWindow())
+#pv.vtk_verbosity('off')
+#vtk_output = vtk.vtkOutputWindow.GetInstance()
+#vtk_output.SetInstance(vtk.vtkStringOutputWindow())
 
 # Constants
 GRAVITY = 9.81 # [m/s2]
@@ -20,6 +20,8 @@ RADIUS = 0.3
 COLLISION_DAMPING = 1.0
 NUM_PARTICLES = 5
 BETWEEN_PARTICLE_SPACING = 0.0
+SMOOTHING_RADIUS = 1.0
+MASS = 1.0
 
 def main():
     pl = pv.Plotter()
@@ -145,5 +147,42 @@ def resolve_collisions(position: np.ndarray, velocity: np.ndarray):
         position[1] = half_bounds_size[1] * np.sign(position[1])
         velocity[1] *= -1.0 * COLLISION_DAMPING
         
+def smoothing_kernel(dst: float) -> float:
+    value = max(0.0, SMOOTHING_RADIUS * SMOOTHING_RADIUS - dst * dst)
+
+    # Used to normalize the value. It's called volume but in 2D it has a area unit
+    volume = math.pi * math.pow(SMOOTHING_RADIUS, 8) / 4.0
+    return value * value * value / volume
+
+def smoothing_kernel_derivative(dst: float) -> float:
+    if dst >= SMOOTHING_RADIUS:
+        return 0.0
+    
+    value = max(0.0, SMOOTHING_RADIUS * SMOOTHING_RADIUS - dst * dst)
+    scale = - 24.0 / (math.pi * math.pow(SMOOTHING_RADIUS, 8))
+    return scale * dst * value * value
+
+
+
+def calculate_density(sample_point: np.ndarray, positions: np.ndarray):
+    density = 0.0
+    for position in positions:
+        dst = np.norm(sample_point - position)
+        influence = smoothing_kernel(dst)
+        density += MASS * influence
+    
+    return density
+
+def calculate_property(sample_point: np.ndarray, positions: np.ndarray, particle_properties: np.ndarray) -> float:
+    particle_property = 0.0
+
+    for i, position in enumerate(positions):
+        dst = np.norm(sample_point - position)
+        influence = smoothing_kernel(dst)
+        density = calculate_density(sample_point, positions)
+        particle_property += particle_properties[i] * influence * MASS / density
+
+    return particle_property
+
 if __name__ == "__main__":
     main()
