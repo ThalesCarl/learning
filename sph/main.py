@@ -2,6 +2,9 @@ import math
 import sys
 import vtk
 import numpy as np
+import pyvista as pv
+
+import random
 
 import time
 from dataclasses import dataclass
@@ -31,7 +34,7 @@ def main():
     # velocities: list[np.ndarray] = []
     positions: np.ndarray = np.zeros(shape=(NUM_PARTICLES, 3), dtype=float)
     velocities: np.ndarray = np.zeros(shape=(NUM_PARTICLES, 3), dtype=float)
-    circles = start_particles(pl, positions)
+    circles = start_particles_random(pl, positions)
     # draw_particles(pl, positions)
 
     # Save a copy of the original points so we can modify them relatively
@@ -95,26 +98,46 @@ def configure_plotter(pl: pv.Plotter) -> None:
     # sys.exit(0)
     print("Starting endless loop. Close the window to stop.")
 
-def start_particles(pl: pv.Plotter, positions: np.ndarray) -> list[pv.PolyData]:
+
+def start_particles_grid(pl: pv.Plotter, positions: np.ndarray) -> list[pv.PolyData]:
     # Place particles in a grid formation
     particles_per_row = int(math.sqrt(NUM_PARTICLES))
     particles_per_col = int((NUM_PARTICLES - 1) / particles_per_row + 1)
     spacing = 2.0 * RADIUS + BETWEEN_PARTICLE_SPACING
 
-    colors={0: 'red', 1: 'green', 2: 'blue', 3: 'cyan', 4: 'magenta'}
-    circles = []
     for i in range(NUM_PARTICLES):
         x = (i % particles_per_row - particles_per_row / 2.0 + 0.5) * spacing
         y = (int(i / particles_per_row) - particles_per_col / 2.0 + 0.5) * spacing
         positions[i][0] = x
         positions[i][1] = y
-        circle = pv.Circle(radius=RADIUS, resolution=100)
+
+    circles = []
+    for i in range(NUM_PARTICLES):
+        circle = pv.Circle(radius=RADIUS, resolution=10)
         # circle.translate(positions[i], inplace=True)
         circle.points += positions[i]
-        pl.add_mesh(circle, color=colors[i], show_edges=True, lighting=False)
+        pl.add_mesh(circle, color='cyan', show_edges=True, lighting=False)
         circles.append(circle)
     return circles
 
+
+def start_particles_random(pl: pv.Plotter, positions: np.ndarray) -> list[pv.PolyData]:
+    random.seed(0)
+
+    for i in range(NUM_PARTICLES):
+        x = - 0.5 * BOX_WIDTH + random.random() * BOX_WIDTH
+        y = - 0.5 * BOX_HEIGHT + random.random() * BOX_HEIGHT
+        positions[i][0] = x
+        positions[i][1] = y
+
+    circles = []
+    for i in range(NUM_PARTICLES):
+        circle = pv.Circle(radius=RADIUS, resolution=10)
+        # circle.translate(positions[i], inplace=True)
+        circle.points += positions[i]
+        pl.add_mesh(circle, color='cyan', show_edges=True, lighting=False)
+        circles.append(circle)
+    return circles
 
 def update(positions: np.ndarray, velocities: np.ndarray, delta_t: float, circles: list[pv.PolyData]) -> None:
     for (position, velocity, circle) in zip(positions, velocities, circles):
