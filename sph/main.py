@@ -21,14 +21,15 @@ BOX_HEIGHT = 10.0 # [m]
 BOX_WIDTH = 10.0 # [m]
 RADIUS = 0.3 # [m]
 COLLISION_DAMPING = 1.0 # [-]
-NUM_PARTICLES = 5 # [-]
+NUM_PARTICLES = 10 # [-]
 BETWEEN_PARTICLE_SPACING = 0.0 # [m]
-SMOOTHING_RADIUS = 1.0 # [m]
+SMOOTHING_RADIUS = 10.0 # [m]
 MASS = 1.0 # [kg]
 TARGET_DENSITY = 1.0 # [kg/m2]
 PRESSURE_MULTIPLIER = 1.0 # [m4/s2]
 
 DEBUG = False
+DISPLAY_INITIAL_CONDITION = False
 
 def main():
     pl = pv.Plotter()
@@ -42,6 +43,23 @@ def main():
     circles = start_particles_random(pl, positions)
     # draw_particles(pl, positions)
 
+    # field_grid
+    xx = np.linspace(-0.5 * BOX_WIDTH, 0.5 * BOX_WIDTH, 5)
+    yy = np.linspace(-0.5 * BOX_HEIGHT, 0.5 * BOX_HEIGHT, 5)
+
+    grid_x, grid_y, grid_z = np.meshgrid(xx, yy, 0.0)
+    density_field = np.zeros((len(xx) , len(yy)))
+    for j, y in enumerate(yy):
+        for i, x in enumerate(xx):
+            sample_point = np.array([x, y, 0.0])
+            density_field[j, i] = calculate_density(sample_point, positions)
+
+    field_grid = pv.StructuredGrid(grid_x, grid_y, grid_z)
+
+    field_grid.point_data["densities"] = density_field.ravel(order="F")
+
+    pl.add_mesh(field_grid, scalars="densities", opacity=0.5)
+
     # Save a copy of the original points so we can modify them relatively
     original_points = []
     original_positions = positions.copy()
@@ -50,7 +68,11 @@ def main():
     # print(original_points)
 
     configure_plotter(pl)
-    fps = 60.0
+    if DISPLAY_INITIAL_CONDITION:
+        pl.show()
+        sys.exit()
+
+    fps = 24.0
     delta_t = 1.0/fps
     frame = 0
     try:
@@ -59,9 +81,6 @@ def main():
             if pl.render_window is None:
                 break
             
-            if DEBUG and frame == 0:
-                pl.show()
-                sys.exit()
             update(positions, velocities, densities, delta_t, circles)
 
             # Crucial: Tell PyVista to redraw the scene
@@ -151,17 +170,17 @@ def update(positions: np.ndarray, velocities: np.ndarray, densities: np.ndarray,
         velocities[idx][1] += -1.0 * GRAVITY * delta_t # [m/s]
         densities[idx] = calculate_density(positions[idx], positions) # [kg/m2]
 
-        # pressure_force = np.array([0.0, 0.0, 0.0])
-        pressure_force = calculate_pressure_force(idx, positions, densities) # [kg.m/s2]
+        #pressure_force = np.array([0.0, 0.0, 0.0])
+        # pressure_force = calculate_pressure_force(idx, positions, densities) # [kg.m/s2]
 
         # Why divide by density instead of mass?
-        pressure_acceleration = pressure_force / density # [kg.m/s2] * [m2/kg] = [m3/s2]
-        velocities[idx] += pressure_acceleration * delta_t # [m3/s] - got wrong units
+        #pressure_acceleration = pressure_force / density # [kg.m/s2] * [m2/kg] = [m3/s2]
+        #velocities[idx] += pressure_acceleration * delta_t # [m3/s] - got wrong units
 
         positions[idx] += velocities[idx] * delta_t # [m/s] * [s] = [m]
         resolve_collisions(positions[idx], velocities[idx])
 
-        circle.points += velocity * delta_t
+        circles[idx].points += velocities[idx] * delta_t
     # Parallel
     
 
@@ -188,10 +207,14 @@ def resolve_collisions(position: np.ndarray, velocity: np.ndarray):
         velocity[1] *= -1.0 * COLLISION_DAMPING
         
 def smoothing_kernel(dst: float) -> float:
+    # value = max(0.0, dst * dst - SMOOTHING_RADIUS * SMOOTHING_RADIUS) # [m2]
     value = max(0.0, SMOOTHING_RADIUS * SMOOTHING_RADIUS - dst * dst) # [m2]
 
     # Used to normalize the value.
-    volume_factor = math.pi * math.pow(SMOOTHING_RADIUS, 8) / 4.0 # [m8]
+    volume_factor = math.pow(SMOOTHING_RADIUS, 8) * math.pi / 4.0 # [m8]
+    if DEBUG:
+        print(f"{value=}")
+        print(f"{volume_factor=}")
 
     # It's called volume but in 2D it has a area unit
     return value * value * value / volume_factor  # [1/m2]
@@ -200,7 +223,7 @@ def smoothing_kernel_derivative(dst: float) -> float:
     if dst >= SMOOTHING_RADIUS:
         return 0.0
     
-    value = max(0.0, SMOOTHING_RADIUS * SMOOTHING_RADIUS - dst * dst) # [m2]
+    value = max(0.0, dst * dst - SMOOTHING_RADIUS * SMOOTHING_RADIUS) # [m2]
     scale = - 24.0 / (math.pi * math.pow(SMOOTHING_RADIUS, 8)) # [1/m8]
     return scale * dst * value * value # [1/m3]
 
@@ -209,9 +232,16 @@ def smoothing_kernel_derivative(dst: float) -> float:
 def calculate_density(sample_point: np.ndarray, positions: np.ndarray):
     density = 0.0
     for position in positions:
-        dst = np.linalg.norm(sample_point - position) # [m]
+        dst = np.linalg.norm(position - sample_point) # [m]
         influence = smoothing_kernel(dst) # [1/m2]
         density += MASS * influence # [kg/m2]
+
+        if DEBUG:
+            print(f"{sample_point=}")
+            print(f"{position=}")
+            print(f"{dst=}")
+            print(f"{influence=}")
+            print(f"{density=}")
     
     return density # [kg/m2]
 
