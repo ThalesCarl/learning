@@ -27,8 +27,8 @@ NUM_PARTICLES = 25 # [-]
 BETWEEN_PARTICLE_SPACING = 0.0 # [m]
 SMOOTHING_RADIUS = 10.0 # [m]
 MASS = 1.0 # [kg]
-TARGET_DENSITY = 0.15 # [kg/m2]
-PRESSURE_MULTIPLIER = 100.0 # [m4/s2]
+TARGET_DENSITY = 0.1 # [kg/m2]
+PRESSURE_MULTIPLIER = 10.0 # [m4/s2]
 
 DEBUG = False
 DISPLAY_INITIAL_CONDITION = False
@@ -46,8 +46,8 @@ def main():
     # draw_particles(pl, positions)
 
     # fields: properties computed on a cartesian grid
-    xx = np.linspace(-0.5 * BOX_WIDTH, 0.5 * BOX_WIDTH, 5)
-    yy = np.linspace(-0.5 * BOX_HEIGHT, 0.5 * BOX_HEIGHT, 5)
+    xx = np.linspace(-0.5 * BOX_WIDTH, 0.5 * BOX_WIDTH, 15)
+    yy = np.linspace(-0.5 * BOX_HEIGHT, 0.5 * BOX_HEIGHT, 15)
     density_field = np.zeros((len(xx) , len(yy)))
     pressure_field = np.zeros((len(xx) , len(yy)))
 
@@ -58,7 +58,7 @@ def main():
             for i, x in enumerate(xx):
                 sample_point = np.array([x, y, 0.0])
                 density_field[j, i] = calculate_density(sample_point, positions)
-                pressure_field[j, i] = TARGET_DENSITY - density_field[j, i]
+                pressure_field[j, i] = (TARGET_DENSITY - density_field[j, i]) / TARGET_DENSITY
                 if DEBUG:
                     function_name = inspect.currentframe().f_code.co_name
                     print(f"\n{function_name}")
@@ -68,9 +68,16 @@ def main():
     fields = pv.StructuredGrid(grid_x, grid_y, grid_z)
 
     fields.point_data["densities"] = density_field.ravel(order="F")
-    fields.point_data["pressures"] = density_field.ravel(order="F")
+    fields.point_data["pressures"] = pressure_field.ravel(order="F")
 
-    pl.add_mesh(fields, scalars="densities", cmap="PuOr")
+    scalar_bar_args = {
+        "vertical": True,
+        "position_x": 0.9,
+        "position_y": 0.2,
+        "render": True,
+        "title": ""
+    }
+    pl.add_mesh(fields, scalars="pressures", cmap="PuOr", scalar_bar_args=scalar_bar_args)
 
     circles = start_particles_random(pl, positions)
 
@@ -195,6 +202,7 @@ def update(positions: np.ndarray, velocities: np.ndarray, densities: np.ndarray,
 
         # Why divide by density instead of mass?
         pressure_acceleration = pressure_force / densities[idx] # [kg.m/s2] * [m2/kg] = [m3/s2]
+        # pressure_acceleration = pressure_force / MASS
         velocities[idx] += pressure_acceleration * delta_t # [m3/s] - got wrong units
 
         positions[idx] += velocities[idx] * delta_t # [m/s] * [s] = [m]
@@ -294,14 +302,17 @@ def calculate_pressure_force(particle_idx: int, positions: np.ndarray, densities
         if i == particle_idx:
             continue
         dst = np.linalg.norm(sample_point - position) # [m]
-        direction = np.array([random.random(), random.random(), 0.0]) # FIXME change to random direction
         if dst > 1.0e-3:
             direction = (sample_point - position) / dst
+        else:
+            random_vector = np.random.randn(2)
+            unit_vector = random_vector / np.linalg.norm(random_vector)
+            direction = np.array([unit_vector[0], unit_vector[1], 0.0])
         density = densities[i] # [kg/m2]
+        if density < 1.0e-3:
+            density = 1.0e-3
         slope = smoothing_kernel_derivative(dst) # [1/m3]
         pressure_factor = calculate_pressure_factor(density) # [kg/m2.s2]
-        if density < 1.0e-6:
-            continue
         pressure_force +=  direction * pressure_factor * slope *  MASS / density # [kg/m2.s2] * [1/m3] * [kg] * [m2/kg]
         if DEBUG:
             function_name = inspect.currentframe().f_code.co_name
