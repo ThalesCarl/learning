@@ -1,4 +1,5 @@
 import math
+import inspect
 import sys
 import vtk
 import numpy as np
@@ -8,6 +9,7 @@ import random
 
 import time
 from dataclasses import dataclass
+
 
 # Configure pyvista and vtk to suppress errors because I was getting a annoying
 # "Could not set shader program" error and traceback
@@ -19,17 +21,18 @@ from dataclasses import dataclass
 GRAVITY = 9.81 # [m/s2]
 BOX_HEIGHT = 10.0 # [m]
 BOX_WIDTH = 10.0 # [m]
-RADIUS = 0.3 # [m]
-COLLISION_DAMPING = 1.0 # [-]
-NUM_PARTICLES = 10 # [-]
+RADIUS = 0.1 # [m]
+COLLISION_DAMPING = 0.6 # [-]
+NUM_PARTICLES = 25 # [-]
 BETWEEN_PARTICLE_SPACING = 0.0 # [m]
 SMOOTHING_RADIUS = 10.0 # [m]
 MASS = 1.0 # [kg]
-TARGET_DENSITY = 1.0 # [kg/m2]
-PRESSURE_MULTIPLIER = 1.0 # [m4/s2]
+TARGET_DENSITY = 0.15 # [kg/m2]
+PRESSURE_MULTIPLIER = 100.0 # [m4/s2]
 
 DEBUG = False
 DISPLAY_INITIAL_CONDITION = False
+DISPLAY_FIRST_TIME_ITERATION = False
 
 def main():
     pl = pv.Plotter()
@@ -40,25 +43,36 @@ def main():
     positions: np.ndarray = np.zeros(shape=(NUM_PARTICLES, 3), dtype=float)
     velocities: np.ndarray = np.zeros(shape=(NUM_PARTICLES, 3), dtype=float)
     densities: np.ndarray = np.zeros(NUM_PARTICLES, dtype=float)
-    circles = start_particles_random(pl, positions)
     # draw_particles(pl, positions)
 
-    # field_grid
+    # fields: properties computed on a cartesian grid
     xx = np.linspace(-0.5 * BOX_WIDTH, 0.5 * BOX_WIDTH, 5)
     yy = np.linspace(-0.5 * BOX_HEIGHT, 0.5 * BOX_HEIGHT, 5)
+    density_field = np.zeros((len(xx) , len(yy)))
+    pressure_field = np.zeros((len(xx) , len(yy)))
 
     grid_x, grid_y, grid_z = np.meshgrid(xx, yy, 0.0)
-    density_field = np.zeros((len(xx) , len(yy)))
-    for j, y in enumerate(yy):
-        for i, x in enumerate(xx):
-            sample_point = np.array([x, y, 0.0])
-            density_field[j, i] = calculate_density(sample_point, positions)
 
-    field_grid = pv.StructuredGrid(grid_x, grid_y, grid_z)
+    def update_fields(density_field, pressure_field):
+        for j, y in enumerate(yy):
+            for i, x in enumerate(xx):
+                sample_point = np.array([x, y, 0.0])
+                density_field[j, i] = calculate_density(sample_point, positions)
+                pressure_field[j, i] = TARGET_DENSITY - density_field[j, i]
+                if DEBUG:
+                    function_name = inspect.currentframe().f_code.co_name
+                    print(f"\n{function_name}")
+                    print(f"{sample_point=}, {density_field[j, i]=}, {pressure_field=}")
 
-    field_grid.point_data["densities"] = density_field.ravel(order="F")
+    update_fields(density_field, pressure_field)
+    fields = pv.StructuredGrid(grid_x, grid_y, grid_z)
 
-    pl.add_mesh(field_grid, scalars="densities", opacity=0.5)
+    fields.point_data["densities"] = density_field.ravel(order="F")
+    fields.point_data["pressures"] = density_field.ravel(order="F")
+
+    pl.add_mesh(fields, scalars="densities", cmap="PuOr")
+
+    circles = start_particles_random(pl, positions)
 
     # Save a copy of the original points so we can modify them relatively
     original_points = []
@@ -81,7 +95,13 @@ def main():
             if pl.render_window is None:
                 break
             
+            update_fields(density_field, pressure_field)
+            fields.point_data["densities"] = density_field.ravel(order="F")
+            fields.point_data["pressures"] = pressure_field.ravel(order="F")
             update(positions, velocities, densities, delta_t, circles)
+            if DISPLAY_FIRST_TIME_ITERATION:
+                pl.show()
+                sys.exit()
 
             # Crucial: Tell PyVista to redraw the scene
             pl.update()
@@ -140,13 +160,13 @@ def start_particles_grid(pl: pv.Plotter, positions: np.ndarray) -> list[pv.PolyD
         circle = pv.Circle(radius=RADIUS, resolution=10)
         # circle.translate(positions[i], inplace=True)
         circle.points += positions[i]
-        pl.add_mesh(circle, color='cyan', show_edges=True, lighting=False)
+        pl.add_mesh(circle, color='black', show_edges=True, lighting=False)
         circles.append(circle)
     return circles
 
 
 def start_particles_random(pl: pv.Plotter, positions: np.ndarray) -> list[pv.PolyData]:
-    random.seed(0)
+    random.seed(42)
 
     for i in range(NUM_PARTICLES):
         x = - 0.5 * BOX_WIDTH + random.random() * BOX_WIDTH
@@ -159,7 +179,7 @@ def start_particles_random(pl: pv.Plotter, positions: np.ndarray) -> list[pv.Pol
         circle = pv.Circle(radius=RADIUS, resolution=10)
         # circle.translate(positions[i], inplace=True)
         circle.points += positions[i]
-        pl.add_mesh(circle, color='cyan', show_edges=True, lighting=False)
+        pl.add_mesh(circle, color='black', show_edges=True, lighting=False)
         circles.append(circle)
     return circles
 
@@ -167,15 +187,15 @@ def update(positions: np.ndarray, velocities: np.ndarray, densities: np.ndarray,
     # Serial
     for idx in range(NUM_PARTICLES):
     # for (position, velocity, density, circle) in zip(positions, velocities, densities, circles):
-        velocities[idx][1] += -1.0 * GRAVITY * delta_t # [m/s]
+        # velocities[idx][1] += -1.0 * GRAVITY * delta_t # [m/s]
         densities[idx] = calculate_density(positions[idx], positions) # [kg/m2]
 
-        #pressure_force = np.array([0.0, 0.0, 0.0])
-        # pressure_force = calculate_pressure_force(idx, positions, densities) # [kg.m/s2]
+        # pressure_force = np.array([0.0, 0.0, 0.0])
+        pressure_force = calculate_pressure_force(idx, positions, densities) # [kg.m/s2]
 
         # Why divide by density instead of mass?
-        #pressure_acceleration = pressure_force / density # [kg.m/s2] * [m2/kg] = [m3/s2]
-        #velocities[idx] += pressure_acceleration * delta_t # [m3/s] - got wrong units
+        pressure_acceleration = pressure_force / densities[idx] # [kg.m/s2] * [m2/kg] = [m3/s2]
+        velocities[idx] += pressure_acceleration * delta_t # [m3/s] - got wrong units
 
         positions[idx] += velocities[idx] * delta_t # [m/s] * [s] = [m]
         resolve_collisions(positions[idx], velocities[idx])
@@ -213,6 +233,8 @@ def smoothing_kernel(dst: float) -> float:
     # Used to normalize the value.
     volume_factor = math.pow(SMOOTHING_RADIUS, 8) * math.pi / 4.0 # [m8]
     if DEBUG:
+        function_name = inspect.currentframe().f_code.co_name
+        print(f"\n{function_name}")
         print(f"{value=}")
         print(f"{volume_factor=}")
 
@@ -223,8 +245,13 @@ def smoothing_kernel_derivative(dst: float) -> float:
     if dst >= SMOOTHING_RADIUS:
         return 0.0
     
-    value = max(0.0, dst * dst - SMOOTHING_RADIUS * SMOOTHING_RADIUS) # [m2]
+    value = max(0.0, SMOOTHING_RADIUS * SMOOTHING_RADIUS - dst * dst) # [m2]
     scale = - 24.0 / (math.pi * math.pow(SMOOTHING_RADIUS, 8)) # [1/m8]
+    if DEBUG:
+        function_name = inspect.currentframe().f_code.co_name
+        print(f"\n{function_name}")
+        print(f"{value=}")
+        print(f"{scale=}")
     return scale * dst * value * value # [1/m3]
 
 
@@ -237,6 +264,8 @@ def calculate_density(sample_point: np.ndarray, positions: np.ndarray):
         density += MASS * influence # [kg/m2]
 
         if DEBUG:
+            function_name = inspect.currentframe().f_code.co_name
+            print(f"\n{function_name}")
             print(f"{sample_point=}")
             print(f"{position=}")
             print(f"{dst=}")
@@ -265,13 +294,27 @@ def calculate_pressure_force(particle_idx: int, positions: np.ndarray, densities
         if i == particle_idx:
             continue
         dst = np.linalg.norm(sample_point - position) # [m]
-        direction = np.array([1.0, 0.0, 0.0]) # FIXME change to random direction
-        if dst > 1.0e-6:
+        direction = np.array([random.random(), random.random(), 0.0]) # FIXME change to random direction
+        if dst > 1.0e-3:
             direction = (sample_point - position) / dst
         density = densities[i] # [kg/m2]
         slope = smoothing_kernel_derivative(dst) # [1/m3]
         pressure_factor = calculate_pressure_factor(density) # [kg/m2.s2]
+        if density < 1.0e-6:
+            continue
         pressure_force +=  direction * pressure_factor * slope *  MASS / density # [kg/m2.s2] * [1/m3] * [kg] * [m2/kg]
+        if DEBUG:
+            function_name = inspect.currentframe().f_code.co_name
+            print(f"\n{function_name}")
+            print(f"{sample_point=}")
+            print(f"{position=}")
+            print(f"{dst=}")
+            print(f"{density=}")
+            print(f"{slope=}")
+            print(f"{pressure_factor=}")
+            print(f"{pressure_force=}")
+    
+
 
     return pressure_force # [kg.m/s2]
 
